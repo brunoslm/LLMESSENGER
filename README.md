@@ -35,7 +35,7 @@ Na primeira vez que você sincronizar PDFs, o modelo de embeddings (`paraphrase-
 
 ## Seus documentos (RAG)
 
-Clique em **Documentos > Adicionar PDFs**. Os arquivos são copiados para `meus_pdfs/`, e o banco vetorial fica em `banco_chroma/`. Os trechos relevantes vão junto com a pergunta para qualquer agente. Tudo fica só na sua máquina.
+Clique em **Documentos > Adicionar PDFs...**. Os arquivos são copiados para `meus_pdfs/`, e o banco vetorial fica em `banco_chroma/`. Se você colocar PDFs direto na pasta, use **Documentos > Sincronizar pasta**. Os trechos relevantes vão junto com a pergunta para qualquer agente. Tudo fica só na sua máquina.
 
 ## Estrutura
 
@@ -48,13 +48,15 @@ Clique em **Documentos > Adicionar PDFs**. Os arquivos são copiados para `meus_
 | `documentos.py` | Leitura dos PDFs e busca no banco vetorial |
 | `conversas.py` | Histórico e preferências em SQLite (`conversas.db`) |
 | `recursos.py` | Sprites, emoticons e conversão do texto em HTML |
+| `test_treinamento.py` | Testes dos arquivos de treino e do `treinamento.py` |
+| `assets/` | Imagens: avatares, emoticons, moldura e botões da janela |
 
 ## Os arquivos de treino (`train_*.jsonl`)
 
 Cada linha é um exemplo no formato de chat (`{"messages": [...]}`), o mesmo usado em fine-tuning. Linhas começando com `//` são comentários. O app relê os arquivos sozinho quando eles mudam.
 
 - **`train_emoticons.jsonl`**: pares "expressão → emoticon", com gírias regionais do Brasil inteiro (oxe, uai, bah, égua, trem bão, da hora...), e conversas de exemplo. As primeiras expressões de cada emoticon vão sempre no prompt. As demais só entram quando o usuário usa aquela gíria, então o arquivo pode crescer sem deixar o prompt maior.
-- **`train_zeca.jsonl`, `train_lia.jsonl`, `train_byte.jsonl`, `train_teo.jsonl`**: conversas de exemplo de cada agente. A cada pergunta, entram no prompt os 6 exemplos mais parecidos com ela.
+- **`train_zeca.jsonl`, `train_lia.jsonl`, `train_byte.jsonl`, `train_teo.jsonl`**: conversas de exemplo de cada agente. A cada pergunta, entram no prompt até 6 exemplos: até 3 mais parecidos com ela e, completando as vagas, os primeiros do arquivo.
 
 Depois de editar, rode os testes para conferir se nada quebrou:
 
