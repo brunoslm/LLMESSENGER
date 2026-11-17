@@ -63,8 +63,15 @@ def _texto_do_assistente(conteudo):
         return dados["mensagem_chat"]
     return conteudo
 
+# Quantas expressões de cada emoticon vão sempre no prompt; as demais só entram quando
+# aparecem na mensagem do usuário, para o prompt não crescer junto com o arquivo de treino
+MAX_EXPRESSOES_FIXAS = 6
+# Máximo de gírias da mensagem explicadas de uma vez
+MAX_GIRIAS = 8
+
 @lru_cache(maxsize=None)
-def _glossario(caminho, _mtime):
+def _grupos(caminho, _mtime):
+    """Expressões de cada emoticon, na ordem do arquivo, sem repetir."""
     grupos = {}
     for mensagens in carregar_jsonl(caminho):
         usuario = next((m["content"] for m in mensagens if m.get("role") == "user"), None)
@@ -75,13 +82,36 @@ def _glossario(caminho, _mtime):
             atalho = EMOJI_DO_ATALHO.get(atalho)
             if not atalho:
                 continue  # Sem emoji equivalente, a IA não teria como desenhá-lo
-        grupos.setdefault(atalho, []).append(usuario.strip())
-    return "\n".join(f"{atalho}  {', '.join(palavras)}" for atalho, palavras in grupos.items())
+        expressoes = grupos.setdefault(atalho, [])
+        if usuario.strip() not in expressoes:
+            expressoes.append(usuario.strip())
+    return grupos
+
+def _grupos_atuais():
+    caminho = _caminho(ARQUIVO_EMOTICONS)
+    return _grupos(caminho, _mtime(caminho))
 
 def glossario_emoticons():
-    """Texto com cada emoticon e as expressões que combinam com ele."""
-    caminho = _caminho(ARQUIVO_EMOTICONS)
-    return _glossario(caminho, _mtime(caminho))
+    """Texto com cada emoticon e as primeiras expressões que combinam com ele."""
+    return "\n".join(
+        f"{atalho}  {', '.join(expressoes[:MAX_EXPRESSOES_FIXAS])}"
+        for atalho, expressoes in _grupos_atuais().items()
+    )
+
+def girias_da_mensagem(texto):
+    """
+    Expressões do treino que aparecem na mensagem e não estão no dicionário fixo,
+    como "oxe" ou "trem bão", no formato "expressão → emoticon".
+    """
+    if not texto:
+        return ""
+    texto = texto.lower()
+    achadas = []
+    for atalho, expressoes in _grupos_atuais().items():
+        for expressao in expressoes[MAX_EXPRESSOES_FIXAS:]:
+            if re.search(rf"(?<!\w){re.escape(expressao.lower())}(?!\w)", texto):
+                achadas.append(f"{expressao} → {atalho}")
+    return "\n".join(achadas[:MAX_GIRIAS])
 
 # Carinhas que qualquer modelo já entende; as outras recebem uma explicação
 CARINHAS_CONHECIDAS = {":)", ":d", ";)", ":o", ":p", ":(", ":'(", ":@", ":s", ":$", ":|"}

@@ -7,10 +7,14 @@ OBJETIVO: Conectar ao Ollama e rodar a IA em segundo plano (Multithreading).
 import re
 from PyQt6.QtCore import QThread, pyqtSignal
 import ollama
-from treinamento import glossario_emoticons, exemplos_agente, explicar_emoticons
+from treinamento import glossario_emoticons, girias_da_mensagem, exemplos_agente, explicar_emoticons
 
 # Quantas mensagens anteriores acompanham cada pergunta
 LIMITE_HISTORICO = 20
+# Tamanho do contexto pedido ao Ollama (em tokens). O padrão dele é 4096, pouco para a
+# personalidade + dicionário + exemplos + PDFs + histórico; quando estoura, o Ollama
+# corta o começo do prompt, que é justamente a personalidade do agente.
+TAMANHO_CONTEXTO = 16384
 
 SYSTEM_PROMPT_BASE = """
 Você está conversando em um MSN Messenger moderno. Responda em português, de forma natural,
@@ -84,6 +88,9 @@ class WorkerIA(QThread):
                 "\nEXEMPLOS DO SEU JEITO DE RESPONDER (são só referência de estilo e não fazem "
                 "parte desta conversa; não copie frases deles e varie o jeito de começar):\n" + dialogos + "\n"
             )
+        girias = girias_da_mensagem(self.consulta)
+        if girias:
+            prompt += "\nGÍRIAS NA MENSAGEM DO USUÁRIO E O EMOTICON QUE COMBINA:\n" + girias + "\n"
         if self.agente.pode_nudge:
             prompt += PROMPT_NUDGE
         # Sem consulta (ex.: reação ao "chamar atenção") não há o que buscar nos PDFs
@@ -100,7 +107,9 @@ class WorkerIA(QThread):
     def run(self):
         try:
             mensagens = [{'role': 'system', 'content': self._montar_prompt()}] + self.historico
-            opcoes = {} if self.agente.temperatura is None else {"temperature": self.agente.temperatura}
+            opcoes = {"num_ctx": TAMANHO_CONTEXTO}
+            if self.agente.temperatura is not None:
+                opcoes["temperature"] = self.agente.temperatura
             resposta = ""
             for parte in ollama.chat(model=self.modelo, messages=mensagens, stream=True, options=opcoes):
                 if self.isInterruptionRequested():
