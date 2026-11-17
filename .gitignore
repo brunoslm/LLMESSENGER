@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+banco_chroma/
+conversas.db
+meus_pdfs/
+.venv/
+venv/
